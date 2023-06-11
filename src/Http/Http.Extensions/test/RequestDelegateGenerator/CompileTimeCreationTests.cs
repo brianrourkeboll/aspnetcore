@@ -79,6 +79,4 @@ app.MapGet("/hello", (HttpContext context) => Task.CompletedTask);
         await endpoint.RequestDelegate(httpContext);
         await VerifyResponseBodyAsync(httpContext, expectedBody: "null");
     }
-
-
 }

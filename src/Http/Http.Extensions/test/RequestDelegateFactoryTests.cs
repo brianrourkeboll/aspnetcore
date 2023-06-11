@@ -1420,10 +1420,12 @@ public partial class RequestDelegateFactoryTests : LoggedTest
             CustomResult TestAction() => new CustomResult(resultString);
             Task<CustomResult> TaskTestAction() => Task.FromResult(new CustomResult(resultString));
             ValueTask<CustomResult> ValueTaskTestAction() => ValueTask.FromResult(new CustomResult(resultString));
+            FSharp.Control.FSharpAsync<CustomResult> FSharpAsyncTestAction() => FSharp.Core.ExtraTopLevelOperators.DefaultAsyncBuilder.Return(new CustomResult(resultString));
 
             static CustomResult StaticTestAction() => new CustomResult("Still not enough tests!");
             static Task<CustomResult> StaticTaskTestAction() => Task.FromResult(new CustomResult("Still not enough tests!"));
             static ValueTask<CustomResult> StaticValueTaskTestAction() => ValueTask.FromResult(new CustomResult("Still not enough tests!"));
+            static FSharp.Control.FSharpAsync<CustomResult> StaticFSharpAsyncTestAction() => FSharp.Core.ExtraTopLevelOperators.DefaultAsyncBuilder.Return(new CustomResult("Still not enough tests!"));
 
             // Object return type where the object is IResult
             static object StaticResultAsObject() => new CustomResult("Still not enough tests!");
@@ -1431,28 +1433,35 @@ public partial class RequestDelegateFactoryTests : LoggedTest
             // Task<object> return type
             static Task<object> StaticTaskOfIResultAsObject() => Task.FromResult<object>(new CustomResult("Still not enough tests!"));
             static ValueTask<object> StaticValueTaskOfIResultAsObject() => ValueTask.FromResult<object>(new CustomResult("Still not enough tests!"));
+            static FSharp.Control.FSharpAsync<object> StaticFSharpAsyncOfIResultAsObject() => FSharp.Core.ExtraTopLevelOperators.DefaultAsyncBuilder.Return<object>(new CustomResult("Still not enough tests!"));
 
             StructResult TestStructAction() => new StructResult(resultString);
             Task<StructResult> TaskTestStructAction() => Task.FromResult(new StructResult(resultString));
             ValueTask<StructResult> ValueTaskTestStructAction() => ValueTask.FromResult(new StructResult(resultString));
+            FSharp.Control.FSharpAsync<StructResult> FSharpAsyncTestStructAction() => FSharp.Core.ExtraTopLevelOperators.DefaultAsyncBuilder.Return(new StructResult(resultString));
 
             return new List<object[]>
                 {
                     new object[] { (Func<CustomResult>)TestAction },
                     new object[] { (Func<Task<CustomResult>>)TaskTestAction},
                     new object[] { (Func<ValueTask<CustomResult>>)ValueTaskTestAction},
+                    new object[] { (Func<FSharp.Control.FSharpAsync<CustomResult>>)FSharpAsyncTestAction },
+
                     new object[] { (Func<CustomResult>)StaticTestAction},
                     new object[] { (Func<Task<CustomResult>>)StaticTaskTestAction},
                     new object[] { (Func<ValueTask<CustomResult>>)StaticValueTaskTestAction},
+                    new object[] { (Func<FSharp.Control.FSharpAsync<CustomResult>>)StaticFSharpAsyncTestAction },
 
                     new object[] { (Func<object>)StaticResultAsObject},
 
                     new object[] { (Func<Task<object>>)StaticTaskOfIResultAsObject},
                     new object[] { (Func<ValueTask<object>>)StaticValueTaskOfIResultAsObject},
+                    new object[] { (Func<FSharp.Control.FSharpAsync<object>>)StaticFSharpAsyncOfIResultAsObject},
 
                     new object[] { (Func<StructResult>)TestStructAction },
                     new object[] { (Func<Task<StructResult>>)TaskTestStructAction },
                     new object[] { (Func<ValueTask<StructResult>>)ValueTaskTestStructAction },
+                    new object[] { (Func<FSharp.Control.FSharpAsync<StructResult>>)FSharpAsyncTestStructAction },
                 };
         }
     }
