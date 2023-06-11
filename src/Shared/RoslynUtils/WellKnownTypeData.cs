@@ -111,7 +111,9 @@ internal static class WellKnownTypeData
         Microsoft_AspNetCore_Authorization_AllowAnonymousAttribute,
         Microsoft_AspNetCore_Authorization_AuthorizeAttribute,
         Microsoft_Extensions_DependencyInjection_PolicyServiceCollectionExtensions,
-        Microsoft_AspNetCore_Authorization_AuthorizationOptions
+        Microsoft_AspNetCore_Authorization_AuthorizationOptions,
+        Microsoft_FSharp_Control_FSharpAsync_T,
+        Microsoft_FSharp_Core_Unit
     }
 
     public static string[] WellKnownTypeNames = new[]
@@ -220,6 +222,8 @@ internal static class WellKnownTypeData
         "Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute",
         "Microsoft.AspNetCore.Authorization.AuthorizeAttribute",
         "Microsoft.Extensions.DependencyInjection.PolicyServiceCollectionExtensions",
-        "Microsoft.AspNetCore.Authorization.AuthorizationOptions"
+        "Microsoft.AspNetCore.Authorization.AuthorizationOptions",
+        "Microsoft.FSharp.Control.FSharpAsync`1",
+        "Microsoft.FSharp.Core.Unit"
     };
 }

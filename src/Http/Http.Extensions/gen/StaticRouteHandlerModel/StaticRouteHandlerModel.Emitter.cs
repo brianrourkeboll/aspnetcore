@@ -84,7 +84,14 @@ internal static class StaticRouteHandlerModelEmitter
         {
             codeWriter.Write("await ");
         }
-        codeWriter.WriteLine($"handler({endpoint.EmitArgumentList()});");
+        if (endpoint.Response.AwaitableNeedsCoercion)
+        {
+            endpoint.EmitAwaitableCoercion(codeWriter);
+        }
+        else
+        {
+            codeWriter.WriteLine($"handler({endpoint.EmitArgumentList()});");
+        }
 
         endpoint.Response.EmitHttpResponseContentType(codeWriter);
 
@@ -98,6 +105,13 @@ internal static class StaticRouteHandlerModelEmitter
         }
 
         codeWriter.EndBlock(); // End handler method block
+    }
+
+    // Only supports FSharpAsync<T> → Task<T>.
+    private static void EmitAwaitableCoercion(this Endpoint endpoint, CodeWriter codeWriter)
+    {
+        var responseType = endpoint.Response!.ResponseType?.ToDisplayString(EmitterConstants.DisplayFormat) ?? "Microsoft.FSharp.Core.Unit";
+        codeWriter.WriteLine($"Microsoft.FSharp.Control.FSharpAsync.StartAsTask<{responseType}>(handler({endpoint.EmitArgumentList()}), null, null);");
     }
 
     private static void EmitHttpResponseContentType(this EndpointResponse endpointResponse, CodeWriter codeWriter)
@@ -350,24 +364,38 @@ internal static class StaticRouteHandlerModelEmitter
 
     public static void EmitFilteredInvocation(this Endpoint endpoint, CodeWriter codeWriter)
     {
-        if (endpoint.Response?.HasNoResponse == true)
+        switch (endpoint.Response)
         {
-            codeWriter.WriteLine(endpoint.Response?.IsAwaitable == true
-                ? $"await handler({endpoint.EmitFilteredArgumentList()});"
-                : $"handler({endpoint.EmitFilteredArgumentList()});");
-            codeWriter.WriteLine(endpoint.Response?.IsAwaitable == true
-                ? "return (object?)Results.Empty;"
-                : "return ValueTask.FromResult<object?>(Results.Empty);");
-        }
-        else if (endpoint.Response?.IsAwaitable == true)
-        {
-            codeWriter.WriteLine($"var result = await handler({endpoint.EmitFilteredArgumentList()});");
-            codeWriter.WriteLine("return (object?)result;");
-        }
-        else
-        {
-            codeWriter.WriteLine($"return ValueTask.FromResult<object?>(handler({endpoint.EmitFilteredArgumentList()}));");
-        }
+            case { IsAwaitable: true, AwaitableNeedsCoercion: false, HasNoResponse: true }:
+                codeWriter.WriteLine($"await handler({endpoint.EmitFilteredArgumentList()});");
+                codeWriter.WriteLine("return (object?)Results.Empty;");
+                return;
+
+            case { IsAwaitable: true, AwaitableNeedsCoercion: false, HasNoResponse: false }:
+                codeWriter.WriteLine($"var result = await handler({endpoint.EmitFilteredArgumentList()});");
+                codeWriter.WriteLine("return (object?)result;");
+                return;
+
+            case { IsAwaitable: true, AwaitableNeedsCoercion: true, HasNoResponse: true }:
+                codeWriter.WriteLine($"await Microsoft.FSharp.Control.FSharpAsync.StartAsTask<Microsoft.FSharp.Core.Unit>(handler({endpoint.EmitArgumentList()}), null, null);");
+                codeWriter.WriteLine("return (object?)Results.Empty;");
+                return;
+
+            case { IsAwaitable: true, AwaitableNeedsCoercion: true, HasNoResponse: false }:
+                codeWriter.WriteLine($"var result = await Microsoft.FSharp.Control.FSharpAsync.StartAsTask<{endpoint.Response.ResponseType!.ToDisplayString(EmitterConstants.DisplayFormat)}>(handler({endpoint.EmitArgumentList()}), null, null);");
+                codeWriter.WriteLine("return (object?)result;");
+                return;
+
+            case { IsAwaitable: false, HasNoResponse: true }:
+                codeWriter.WriteLine($"handler({endpoint.EmitFilteredArgumentList()});");
+                codeWriter.WriteLine("return ValueTask.FromResult<object?>(Results.Empty);");
+                return;
+
+            case { IsAwaitable: false, HasNoResponse: false }:
+            default:
+                codeWriter.WriteLine($"return ValueTask.FromResult<object?>(handler({endpoint.EmitFilteredArgumentList()}));");
+                return;
+        };
     }
 
     public static string EmitFilteredArgumentList(this Endpoint endpoint)
