@@ -463,6 +463,73 @@ app.MapGet("/", TestAction)
         await VerifyResponseBodyAsync(httpContext, "foo");
     }
 
+    public static object[][] FSharpAsyncOfTMethods
+    {
+        get
+        {
+            var fsharpAsyncOfTMethod = """
+Microsoft.FSharp.Control.FSharpAsync<string> TestAction()
+{
+    return Microsoft.FSharp.Core.ExtraTopLevelOperators.DefaultAsyncBuilder.Return("foo");
+}
+""";
+            var fsharpAsyncOfTWithYieldMethod = """
+Microsoft.FSharp.Control.FSharpAsync<string> TestAction()
+{
+    return Microsoft.FSharp.Control.FSharpAsync.AwaitTask(Yield());
+
+    async Task<string> Yield()
+    {
+        await Task.Yield();
+        return "foo";
+    }
+}
+""";
+            var fsharpAsyncOfObjectWithYieldMethod = """
+Microsoft.FSharp.Control.FSharpAsync<object> TestAction()
+{
+    return Microsoft.FSharp.Control.FSharpAsync.AwaitTask(Yield());
+
+    async Task<object> Yield()
+    {
+        await Task.Yield();
+        return "foo";
+    }
+}
+""";
+
+            return new object[][]
+            {
+                new object[] { fsharpAsyncOfTMethod },
+                new object[] { fsharpAsyncOfTWithYieldMethod },
+                new object[] { fsharpAsyncOfObjectWithYieldMethod }
+            };
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(FSharpAsyncOfTMethods))]
+    public async Task CanInvokeFilter_OnFSharpAsyncOfTReturningHandler(string innerSource)
+    {
+        // Arrange
+        var source = $$"""
+{{innerSource}}
+app.MapGet("/", TestAction)
+.AddEndpointFilterFactory((routeHandlerContext, next) => async (context) =>
+{
+    return await next(context);
+});
+""";
+        var (_, compilation) = await RunGeneratorAsync(source);
+        var endpoint = GetEndpointFromCompilation(compilation);
+        var httpContext = CreateHttpContext();
+
+        // Act
+        await endpoint.RequestDelegate(httpContext);
+
+        await VerifyResponseBodyAsync(httpContext, "foo");
+    }
+
     public static object[][] VoidReturningMethods
     {
         get
@@ -475,10 +542,28 @@ ValueTask TestAction()
     return ValueTask.CompletedTask;
 }
 """;
+            var valueTaskOfUnitMethod = """
+ValueTask<Microsoft.FSharp.Core.Unit> TestAction()
+{
+    return ValueTask.FromResult(default(Microsoft.FSharp.Core.Unit)!);
+}
+""";
             var taskMethod = """
 Task TestAction()
 {
     return Task.CompletedTask;
+}
+""";
+            var taskOfUnitMethod = """
+Task<Microsoft.FSharp.Core.Unit> TestAction()
+{
+    return Task.FromResult(default(Microsoft.FSharp.Core.Unit)!);
+}
+""";
+            var fsharpAsyncOfUnitMethod = """
+Microsoft.FSharp.Control.FSharpAsync<Microsoft.FSharp.Core.Unit> TestAction()
+{
+    return Microsoft.FSharp.Core.ExtraTopLevelOperators.DefaultAsyncBuilder.Return(default(Microsoft.FSharp.Core.Unit)!);
 }
 """;
             var valueTaskWithYieldMethod = """
@@ -494,14 +579,30 @@ async Task TestAction()
     await Task.Yield();
 }
 """;
+            var fsharpAsyncOfUnitWithYieldMethod = """
+Microsoft.FSharp.Control.FSharpAsync<Microsoft.FSharp.Core.Unit> TestAction()
+{
+    return Microsoft.FSharp.Control.FSharpAsync.AwaitTask(Yield());
+
+    async Task<Microsoft.FSharp.Core.Unit> Yield()
+    {
+        await Task.Yield();
+        return default!;
+    }
+}
+""";
 
             return new object[][]
             {
                 new object[] { voidMethod },
                 new object[] { valueTaskMethod },
+                new object[] { valueTaskOfUnitMethod },
                 new object[] { taskMethod },
+                new object[] { taskOfUnitMethod },
+                new object[] { fsharpAsyncOfUnitMethod },
                 new object[] { valueTaskWithYieldMethod },
-                new object[] { taskWithYieldMethod}
+                new object[] { taskWithYieldMethod },
+                new object[] { fsharpAsyncOfUnitWithYieldMethod }
             };
         }
     }
