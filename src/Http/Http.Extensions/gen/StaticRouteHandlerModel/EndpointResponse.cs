@@ -17,6 +17,7 @@ internal class EndpointResponse
     public string WrappedResponseType { get; set; }
     public string? ContentType { get; set; }
     public bool IsAwaitable { get; set; }
+    public bool AwaitableNeedsCoercion { get; set; }
     public bool HasNoResponse { get; set; }
     public bool IsIResult { get; set; }
     public bool IsSerializable { get; set; }
@@ -27,9 +28,10 @@ internal class EndpointResponse
     internal EndpointResponse(IMethodSymbol method, WellKnownTypes wellKnownTypes)
     {
         WellKnownTypes = wellKnownTypes;
-        ResponseType = UnwrapResponseType(method, out bool isAwaitable, out bool awaitableIsVoid);
+        ResponseType = UnwrapResponseType(method, out bool isAwaitable, out bool awaitableIsVoid, out bool awaitableNeedsCoercion);
         WrappedResponseType = method.ReturnType.ToDisplayString(EmitterConstants.DisplayFormat);
         IsAwaitable = isAwaitable;
+        AwaitableNeedsCoercion = awaitableNeedsCoercion;
         HasNoResponse = method.ReturnsVoid || awaitableIsVoid;
         IsIResult = GetIsIResult();
         IsSerializable = GetIsSerializable();
@@ -41,21 +43,27 @@ internal class EndpointResponse
     private static bool ImplementsIEndpointMetadataProvider(ITypeSymbol? responseType, WellKnownTypes wellKnownTypes)
         => responseType == null ? false : responseType.Implements(wellKnownTypes.Get(WellKnownType.Microsoft_AspNetCore_Http_Metadata_IEndpointMetadataProvider));
 
-    private ITypeSymbol? UnwrapResponseType(IMethodSymbol method, out bool isAwaitable, out bool awaitableIsVoid)
+    private ITypeSymbol? UnwrapResponseType(IMethodSymbol method, out bool isAwaitable, out bool awaitableIsVoid, out bool awaitableNeedsCoercion)
     {
         isAwaitable = false;
         awaitableIsVoid = false;
+        awaitableNeedsCoercion = false;
         var returnType = method.ReturnType;
         var task = WellKnownTypes.Get(WellKnownType.System_Threading_Tasks_Task);
         var taskOfT = WellKnownTypes.Get(WellKnownType.System_Threading_Tasks_Task_T);
         var valueTask = WellKnownTypes.Get(WellKnownType.System_Threading_Tasks_ValueTask);
         var valueTaskOfT = WellKnownTypes.Get(WellKnownType.System_Threading_Tasks_ValueTask_T);
+        var fsharpAsyncOfT = WellKnownTypes.Get(WellKnownType.Microsoft_FSharp_Control_FSharpAsync_T);
         if (returnType.OriginalDefinition.Equals(taskOfT, SymbolEqualityComparer.Default) ||
-            returnType.OriginalDefinition.Equals(valueTaskOfT, SymbolEqualityComparer.Default))
+            returnType.OriginalDefinition.Equals(valueTaskOfT, SymbolEqualityComparer.Default) ||
+            (awaitableNeedsCoercion = returnType.OriginalDefinition.Equals(fsharpAsyncOfT, SymbolEqualityComparer.Default)))
         {
             isAwaitable = true;
-            awaitableIsVoid = false;
-            return ((INamedTypeSymbol)returnType).TypeArguments[0];
+            var unwrappedType = ((INamedTypeSymbol)returnType).TypeArguments[0];
+            var fsharpUnit = WellKnownTypes.Get(WellKnownType.Microsoft_FSharp_Core_Unit);
+            var isFSharpUnit = unwrappedType.Equals(fsharpUnit, SymbolEqualityComparer.Default);
+            awaitableIsVoid = isFSharpUnit;
+            return awaitableIsVoid ? null : unwrappedType;
         }
 
         if (returnType.OriginalDefinition.Equals(task, SymbolEqualityComparer.Default) ||
